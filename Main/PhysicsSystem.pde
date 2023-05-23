@@ -4,13 +4,12 @@ public class PhysicsSystem{
     private float maxSpeed;
     private PVector forceDirection;
 
-    public ArrayList<Particle> objects = new ArrayList<Particle>();
-
     //timeの単位はms
-    private long nowTime;
-    private long oldTime;
-    private long deltaTime;
+    private float nowTime;
+    private float oldTime;
+    private float deltaTime;
     private int mode;
+    private boolean isLimit;
 
     /*************************************
     mode type
@@ -20,14 +19,15 @@ public class PhysicsSystem{
     *************************************/
 
     PhysicsSystem(){
-        gravityWeight = 1.0f;
-        antiGravityWeight = 1.0f;
-        forceDirection = new PVector(0,1,0);
+        gravityWeight = 3.6f;
+        antiGravityWeight = -0.9f;
+        forceDirection = new PVector(0.0f,1.0f,0.0f);
         mode = 0;
-        maxSpeed = 1.0f;
+        maxSpeed = 160.0f;
+        isLimit = true;
 
         nowTime = 0;
-        oldtime = 0;
+        oldTime = 0;
     }
 
     public void setGravityWeight(float w){
@@ -38,72 +38,94 @@ public class PhysicsSystem{
         this.antiGravityWeight = w;
     }
 
+    public void setIsLimit(boolean b){
+        this.isLimit = b;
+    }
+
     public void modeSwitch(){
-        (mode == 0) ? mode = 1 : mode = 0;
+        mode = (mode == 0) ? 1 : 0;
     }
 
     private void oldTimeUpdate(){
-        oldTimeUpdate = nowTime;
+        oldTime = nowTime;
     }
 
     private void nowTimeUpdate(){
         nowTime = millis();
     }
 
-    public void Simulation(){
-        oldTimeUpdate();
-        nowTimeUpdate();
+    //必要に応じて反射を呼び出す
+    public void reflect(PVector p,PVector v){
+        PVector limitMinWall = cube.getPosition();
+        PVector limitMaxWall = cube.getMaxPosition();
 
-        for(int i=0; i<objects.size(); i++){
-            eulerIntegral(objects.get(i));
+        if(p.x < limitMinWall.x){
+            p.x = limitMinWall.x;
+            v.x *= -1;
+        }
+        else if(p.x > limitMaxWall.x){
+            p.x = limitMaxWall.x;
+            v.x *= -1;
+        }
+
+        if(p.y < limitMinWall.y){
+            p.y = limitMinWall.y;
+            v.y *= -1;
+        }
+        else if(p.y > limitMaxWall.y){
+            p.y = limitMaxWall.y;
+            v.y *= -1;
+        }
+
+        if(p.z < limitMinWall.z){
+            p.z = limitMinWall.z;
+            v.z *= -1;
+        }
+        else if(p.z > limitMaxWall.z){
+            p.z = limitMaxWall.z;
+            v.z *= -1;
         }
     }
 
-    public void addObject(Particle p){
-        particles.add(p);
-    }
-
-    public void removeObject(){
-        //objectsの要素を全クリア
-        for(int i=0; i<particles.size(); i++){
-            particles.remove(i);
-        }
-    }
-
-    private void eulerIntegral(Particle obj){
-        if(!nullPointerCheck(obj)){
-            return;
-        }
-
-        PVector _pos = obj.position;
-        PVector _vel = obj.velocity;
+    private void addGravity(PVector p,PVector v){
+        PVector _p = p;
+        PVector _v = v;
+        PVector d = forceDirection.copy();
 
         if(mode == 0){
-            _vec.add(forceDirection * gravityWeight * deltaTime());
-            limit(_vec);
-            _pos.add(_vec * deltaTime());
+            d.mult(gravityWeight);
+            _v.add(d);
+            limit(_v);
+            _p.add(_v);
         }
         else if(mode == 1){
-            _vec.add(forceDirection * antiGravityWeight * deltaTime());
-            limit(_vec);
-            _pos.add(_vec * deltaTime());
+            d.mult(antiGravityWeight);
+            _v.add(d);
+            limit(_v);
+            _p.add(_v);
         }
+        //println("加速度" + d + ", 速度" + _v + ", 位置" + _p);
     }
 
-    private void deltaTime(){
-        return nowTime - oldTime;
+    public void setDeltaTime(){
+        oldTimeUpdate();
+        nowTimeUpdate();
+        deltaTime =  nowTime - oldTime;
     }
 
     private void limit(PVector v){
-        float mag = v.mag();
-        (mag <= maxSpeed) ? v :  v = v.normalize()*maxSpeed;
+        if(isLimit){
+            float mag = v.mag();
+            v = (mag <= maxSpeed) ? v : v.normalize().mult(maxSpeed);
+        }
     }
 
-    private void nullPointerCheck(Particle obj){
-        if(obj==null){
-            return false;
-        }
-        return true;
+    public void updatePos(PVector p,PVector v){
+        PVector _p = p;
+        PVector _v = v;
+        
+        limit(_v);
+        _p.add(_v); 
     }
 }
 

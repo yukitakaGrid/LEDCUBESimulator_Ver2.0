@@ -1,26 +1,29 @@
 //LEDCUBEのアニメーション制御プログラム
 
 import controlP5.*;
+import java.math.BigInteger;
+import processing.serial.*;
+import com.leapmotion.leap.*;               // LeapJava ライブラリを使う
 
 //LEDCUBEのサイズを定義
 final int GRID_ROW_MAX_NUM = 5;
 final int GRID_COL_MAX_NUM = 5;
 final int GRID_DEPTH_MAX_NUM = 5;
 //LEDCUBEのシリアル通信の1フレームあたりの送信回数
-final int TRANSMISSION_PER_FRAME = GRID_ROW_MAX_NUM * GRID_COL_MAX_NUM;
-private final float SPHERE_RADIUS = 10;
-private final int LED_RED = 100;
-private final int LED_BLUE = 100;
-private final int LED_GREEN = 240;
-private final int LED_ALPHA = 100;
-private final float LED_SIZE = 100;
+final int TRANSMISSION_PER_FRAME = GRID_ROW_MAX_NUM;
+final float SPHERE_RADIUS = 10.0f;
+final int LED_RED = 100;
+final int LED_BLUE = 100;
+final int LED_GREEN = 240;
+final int LED_ALPHA = 100;
+final float LED_SIZE = 100.0f;
 
 AnimationSystem as = new AnimationSystem();
-PhysicsSystem phySystem = new PhysicsSystem();
+AnimationData data;
 
 public LEDCUBE cube;
 int[][][] frameBuffer;
-byte[] frameBufferBytes;
+String[] frameBufferBytes;
 
 //GUIの設定
 ControlP5 cp5;
@@ -33,68 +36,82 @@ Button shootingStarButton;
 Button digitalRainButton;
 Button spiderwebButton;
 
-String activeName = "Default";
-byte[] frameBufferBytes = new byte[TRANSMISSION_PER_FRAME];
+String activeName = "ProcedualSetup";
+
+Serial serialPort;
+
+com.leapmotion.leap.Controller leap = new com.leapmotion.leap.Controller();
+InteractionBox iBox;   
 
 void setup(){
     size(1000, 1000, P3D);
-    frameRate(60);
+    frameRate(10);
 
-    initButton();
+    //initButton();
 
-    initFrameBuffer = new int[GRID_ROW_MAX_NUM][GRID_COL_MAX_NUM][GRID_DEPTH_MAX_NUM];
-    frameBufferBytes = new byte[TRANSMISSION_PER_FRAME];
-    PVector pos = new PVector(width/2-200, height/2-250, -200);
-    as.LEDCUBEGenerator(pos, GRID_ROW_MAX_NUM, GRID_COL_MAX_NUM, GRID_DEPTH_MAX_NUM);
+    frameBuffer = new int[GRID_ROW_MAX_NUM][GRID_COL_MAX_NUM][GRID_DEPTH_MAX_NUM];
+    frameBufferBytes = new String[TRANSMISSION_PER_FRAME];
+    PVector pos = new PVector(width/2-200.0f, height/2-250.0f, -200.0f);
+    as.LEDCUBEGenerator(pos);
+
+    data = new AnimationData();
 }
 
 void draw(){
     background(40);
 
-    displayTitleText();
-    as.setActiveName(activeName);
     as.play();
-    cube
+    //displayTitleText();
     displayFrameBufferBytes();
+
+    printLedCube(frameBufferBytes);
 }
 
 void chaosBoundButton(){
     activeName = "ChaosBound";
+    as.chaosBound = new ChaosBound();
     println(activeName);
 }
 
 void fountainButton(){
     activeName = "Fountain";
+    as.fountain = new Fountain();
     println(activeName);
 }
 
 void snakeButton(){
     activeName = "Snake";
+    as.snake = new Snake();
     println(activeName);
 }
 
 void laserButton(){
     activeName = "Laser";
+    as.laser = new Laser();
     println(activeName);
 }
 
 void gridButton(){
     activeName = "Grid";
+    as.grid = new Grid();
     println(activeName);
 }
 
 void shootingStarButton(){
     activeName = "ShootingStar";
+    as.shootingStar = new ShootingStar();
     println(activeName);
 }
 
 void digitalRainButton(){
     activeName = "DigitalRain";
+    as.digitalRain = new DigitalRain();
     println(activeName);
 }
 
 void spiderwebButton(){
     activeName = "Spiderweb";
+    as.spiderweb = new Spiderweb();
     println(activeName);
 }
 
@@ -102,11 +119,19 @@ void displayTitleText(){
     fill(255);
     textSize(70);
     textAlign(CENTER, CENTER);
-    text(activeName, width/2, height-height/10);
+    text(activeName, width/2.0f, height-height/10.0f);
 }
 
 void initButton(){
     cp5 = new ControlP5(this);
+
+    // デプスバッファを無効化 (2D描画の準備)
+    hint(DISABLE_DEPTH_TEST);
+
+    // 2D座標系に変換
+    pushMatrix();
+    resetMatrix();
+    
     cp5.addButton("chaosBoundButton")
         .setPosition(10, 10)
         .setSize(100, 20)
@@ -139,18 +164,27 @@ void initButton(){
         .setPosition(10, 220)
         .setSize(100, 20)
         .setLabel("Spiderweb");
+
+    // 座標系を復元し、デプスバッファを有効化
+    popMatrix();
+    hint(ENABLE_DEPTH_TEST);
 }
 
 //frameBufferBytesを文字列としてコンソールに表示させるメソッド
 void displayFrameBufferBytes(){
-    String frameBufferBytesString = "##############\r\n";
+    String frameBufferBytesString = "##############\n";
     for(int i = 0; i < GRID_ROW_MAX_NUM; i++){
-        for(int j = 0; j < GRID_COL_MAX_NUM; j++){
-            frameBufferBytesString += frameBufferBytes[i*GRID_COL_MAX_NUM + j] + "\r\n";
-        }
-        frameBufferBytesString += "\r\n\r\n\r\n";
+        frameBufferBytesString += frameBufferBytes[i] + "\n";
     }
-    frameBufferBytesString = "##############\r\n";
+    frameBufferBytesString += "##############\n";
     println(frameBufferBytesString);
+}
+
+void printLedCube(String[] stringPattern){
+    int[] pattern = new int[TRANSMISSION_PER_FRAME];
+    for(int i = 0; i < TRANSMISSION_PER_FRAME; i++){
+        long hexToInt = Long.parseLong(stringPattern[i], 16); // 16を指定して16進数として解釈する
+        println(hexToInt); // 10進数の数値が出力されます
+    }
 }
 

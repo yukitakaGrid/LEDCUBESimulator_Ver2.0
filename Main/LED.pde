@@ -4,8 +4,8 @@ public class LED{
     private int ledState;
     private int[] index = new int[3];
 
-    LED(PVector pos, int[] index){
-        this.paddingOffset = 20;
+    LED(PVector pos, int[] index, float paddingOffset){
+        this.paddingOffset = paddingOffset;
         this.ledState = 0;
         this.index = index;
         this.position = pos;
