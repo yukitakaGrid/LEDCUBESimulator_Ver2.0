@@ -3,8 +3,9 @@ https://github.com/yukitakaGrid/yukitakaGrid/assets/105165980/177f64ce-755d-4bec
 
 アニメーションの追加など、改造して再利用okです
 
-### 使用ライブラリ
-・ControlP5
+### 使用技術
+- Processing
+- ControlP5
 ***
 
 ## リファレンス
